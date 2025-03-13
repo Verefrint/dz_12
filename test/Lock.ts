@@ -154,7 +154,7 @@ describe("Game test", async function() {
 
         expect(await contract.getIndex()).to.equal(5)
 
-        await expect(contract.connect(user2).reveal(0, ethers.encodeBytes32String("secr"))).to.emit(contract, "FinishGameUnsuccesfully").withArgs(await user2.getAddress(), "The second user doesn't be on time")
+        await expect(contract.connect(user2).reveal(0, ethers.encodeBytes32String("secr"))).to.emit(contract, "FinishGameUnsuccesfully").withArgs(await user1.getAddress(), "The second user doesn't be on time")
 
         expect(await contract.startTime()).to.equal(0)
 
@@ -166,11 +166,3 @@ describe("Game test", async function() {
         await network.provider.send('evm_mine');
     }
 })
-
-
-git init
-git add .
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/Verefrint/dz_12.git
-git push -u origin main

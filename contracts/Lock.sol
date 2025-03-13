@@ -17,6 +17,23 @@ contract Game {
         paper
     }
 
+    enum UserStep {
+        notGamer,
+        register, 
+        commit,
+        reveal
+    }
+
+    enum GameStep {
+        gameNotStarted,
+        firstPlayerRegistered,
+        secondPlayerRegistered,
+        firstPlayerCommited,
+        secondPlayerCommited,
+        firstPlayerRevealed,
+        secondPlayerRevealed
+    }
+
     struct GameStorage {
         address first;
         Step firstStep; 
@@ -31,11 +48,11 @@ contract Game {
 
     uint public startTime;
     uint public toPlay;
-    uint public index;
+    GameStep public index;
     address public firstCommited;
 
     mapping(address => bytes32) public steps;
-    mapping(address => uint) public players;
+    mapping(address => UserStep) public players;
 
     GameStorage private game;
 
@@ -44,7 +61,7 @@ contract Game {
     }
 
     //for test
-    function getIndex() public view returns(uint) {
+    function getIndex() public view returns(GameStep) {
         return index;
     }
 
@@ -53,17 +70,17 @@ contract Game {
     }
 
     function getPayments(address player) public view returns(uint) {
-        return players[player];
+        return uint(players[player]);
     }
 
     function registration() public payable {
         require(msg.value == toPlay, NotEnoughToPlay());
-        require(index < 2, NotAvailableNow());
-        require(players[msg.sender] == 0, SenderIsPlayerYet());
+        require(uint(index) < 2, NotAvailableNow());
+        require(players[msg.sender] == UserStep.notGamer, SenderIsPlayerYet());
 
-        index = index + 1;
+        index = GameStep(uint(index) + 1);
 
-        players[msg.sender] = 1;
+        players[msg.sender] = UserStep.register;
 
         emit RegistrationEvent(msg.sender);
     }
@@ -74,7 +91,7 @@ contract Game {
     } 
 
     function commit(bytes32 step) external  {
-        if ((block.timestamp - startTime) / 60 >= 5 && index == 3) {
+        if (countMinutes() >= 5 && uint(index) == 3) {
             //revert
             (bool success, ) = payable(firstCommited).call{value: address(this).balance}("");
             require(success, UnsuccessedWithdraw());
@@ -82,25 +99,25 @@ contract Game {
 
             clearGame();
         } else {
-            require(index < 4, NotAvailableNow());
-            require(players[msg.sender] == 1, NotPlayerOrPlayed());
+            require(uint(index) < 4, NotAvailableNow());
+            require(players[msg.sender] == UserStep.register, NotPlayerOrPlayed());
 
             if (startTime == 0) {
                 startTime = block.timestamp;
             }
             
             steps[msg.sender] = step;
-            players[msg.sender] = 2;
+            players[msg.sender] = UserStep.commit;
             firstCommited = msg.sender;
 
-            index = index + 1;
+            index = GameStep(uint(index) + 1);
 
             emit StepEvent(msg.sender);
         }
     }
 
     function reveal(Step step, bytes32 secret) external  {
-        if (((block.timestamp - startTime) / 60) >= 5 && index == 5) {
+        if (countMinutes() >= 5 && uint(index) == 5) {
             //revert
             (bool success, ) = payable(firstCommited).call{value: address(this).balance}("");
             require(success, UnsuccessedWithdraw());
@@ -109,13 +126,15 @@ contract Game {
             clearGame();
         }
 
-        require(index < 6, NotAvailableNow());
-        require(players[msg.sender] == 2, NotPlayerOrPlayed());
+        require(uint(index) < 6, NotAvailableNow());
+        require(players[msg.sender] == UserStep.commit, NotPlayerOrPlayed());
 
         bytes32 originate = keccak256(abi.encodePacked(step, secret));
         require(originate == steps[msg.sender], NotYourHash());
 
-        index = index + 1;
+        firstCommited = msg.sender;
+
+        index = GameStep(uint(index) + 1);
 
         if (game.first == address(0)) {
             game.first = msg.sender;
@@ -131,7 +150,7 @@ contract Game {
 
     function clearGame() private {
         startTime = 0;
-        index = 0;
+        index = GameStep.gameNotStarted;
         firstCommited = address(0);
 
         delete players[game.first];
